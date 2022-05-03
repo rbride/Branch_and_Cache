@@ -1,0 +1,2 @@
+this program was compiled using g++ from the terminal using the following flags
+g++ -std=c++1z -Wconversion -Wall -Werror -Wextra -pedantic "Cache_Sim.cpp" -o  Cache.exe

@@ -1,0 +1,59 @@
+/*  Formulas
+tag bits = total # address bits(32) - # index bits - #block offset bits
+block offset bits = log2(block size)
+index bits = log2(#sets)
+sets = size / (BlockSize * Assoc)       */
+/* Requirements
+Be able to declare or instantiated as a L1 l2, and l3 cache etc
+Following parameters
+Size = total bytes of data storage      (any size)
+Assoc: the associativity of the cache   (Assoc = 1 is the direct-mapped cache)
+Blocksize: the number of bytes the in a block, 
+    -following constraints-
+        Blocksize is a Power of 2
+        the number of sets is a power of two
+
+Replacement Policy:
+Cahce should use LRU replacement policy (least-recently-used)
+
+Write Policy:
+Cache Should use the WBWA write policy (write-back + write-allocate)
+    Write-Allocate: a write that misses in the CACHE will cause the block to be allocated 
+    in the cache, therefore both write misses and read misses cause blocks to be allocated
+
+    Write-Back: A write updates the corresponding block in CACHE, making the block dirty
+    it does not update the next level in the memory hierarchy. If a dirty block is evicted
+    from cache, a writeback, (a write of the entire block) will be sent to the next level
+    of the memory heirachy
+
+    Allocating a Block:
+    Sending request to the next level in the memory hierarchy
+    Capable of modeling one or more instances of CACHE to form an overall memory 
+    hieracrhy. i.e use like two instances of CACHE to form l1 and l2
+
+    Cache Recieves a read or write request from whatever is above it in the memory 
+    hierarchy, either the CPU or a lower level cache. 
+    The only time Cache must interact with the next level below it (another cache or main memory)
+    is when the read or write request misses in the Cache. When the read or write request
+    misses in CACHE, CACHE must allocate the requested block so that the read and write 
+    can be preformed.
+    Example: Allocated a request Block X in CACHE
+        - Two step process.
+        Step 1: 
+            Make space for the requested Block X. If there is at least one invalid block
+            in the set the nthere is already space for the requested Block X and no further action required
+
+            if all blocks valid, then a victim block V, must be singled out for eviction. according
+            to replacement policy
+            If the the victim block V is dirty, then a write of V must be issued to the 
+            next level of the memory heirarchy
+        Step 2:
+            Bring in the requested block X. Isssue a read of the requested block X to the 
+            Next level of the memory hierachy and put the request block X in the approriate place in the set
+   
+    Updating State:
+    after servicing the read or write request, whether the corresponding block was in
+    the cache already (hit), or had just been allocated (miss), remember to update
+    other state, this state inclues LRU counters affilated with the set as well as valid 
+    and dirty bits affiliated with the requested block
+*/
