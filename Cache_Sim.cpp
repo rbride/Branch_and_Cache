@@ -84,6 +84,7 @@ void cache_sim() {
         Test by adding those in later, for now they have been remove           
         */
         bool missed_flag = false; 
+        int evicted_address = 0; //if there is nothing there its 0
         int address = stoi(address_str, nullptr, 16);  
         //compare linearly the tags at the set associated with the index
         if(w_r == 'r'){
@@ -92,21 +93,44 @@ void cache_sim() {
             // Read Miss at L1 Chace (L1 is the only Cache)
             if(missed_flag && !L2_flag){
                 L1_read_miss_count++;
-                L1_Cache.write(address);
+                evicted_address = L1_Cache.write(address); //prob unessary since unused
                 L1_Cache.LRU_Update();
                 break;
             }
             // Read Miss at L1 Cache (L2 Cache Exist)
             else if(missed_flag && L2_flag){
                 L1_read_miss_count++;
+                evicted_address = L1_Cache.write(address);
+
+                /* Question NOTE
+                //If Evicted Read/Write L2 of It Like He 
+                //Does in the output before doing the read/write for the Evictor
+                //Might need to play with to get correct values 
+                */
+                if(evicted_address != 0){
+                    L2_read_count++;  ///////THIS ONE MIGHT NEED TO BE Removed
+                    missed_flag = L2_Cache.read(evicted_address);
+                    if (missed_flag){
+                        L2_read_miss_count++;
+                        L2_Cache.write(evicted_address);
+                        L2_Cache.LRU_Update();
+                    }
+                    //Evicted Address hits at L2
+                    else{
+                        L2_Cache.LRU_Update();
+                    }
+                    
+                }
+                
+                //Increment and read for the current address at L2 after checking 
+                //and parsing and eviction
                 L2_read_count++;
-                L1_Cache.write(address);
                 missed_flag = L2_Cache.read(address);
                 //Read Miss at L2
                 if(missed_flag){
                     L2_read_miss_count++;
                     L2_Cache.write(address);
-                    L2_Cache.LRU_Update()
+                    L2_Cache.LRU_Update();
                 }
                 //Else its a Hit update LRU 
                 else{
