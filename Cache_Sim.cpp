@@ -16,25 +16,25 @@
 
 using namespace std;
 
-static bool L2_flag = false; 
+static bool L2_flag = false;
 void cache_sim();
 
 int main() {
-    while(true) {
+    while (true) {
         int mode = 0;
         cout << "Enter 1 to begin Cache Simulator or 2 to Exit \n>: ";
-        cin >> mode; cout << '\n';   
+        cin >> mode; cout << '\n';
         switch (mode) {
-            case 1:
-                cache_sim();
-                break;
-            case 2:
-                return 0;
-            default:
-                cout << "\nInvalid Entry";
-                break;      
-            }
+        case 1:
+            cache_sim();
+            break;
+        case 2:
+            return 0;
+        default:
+            cout << "\nInvalid Entry";
+            break;
         }
+    }
     return 0;
 }
 
@@ -62,10 +62,10 @@ void cache_sim() {
     cin >> L1_assoc;
     cout << "\nEnter L2 Cache Size:\n";
     cin >> L2_size;
-    if (L2_size != 0){
-            cout << "\nEnter L2 Associativity:\n";      
-            cin >> L2_assoc;
-            L2_flag = true;
+    if (L2_size != 0) {
+        cout << "\nEnter L2 Associativity:\n";
+        cin >> L2_assoc;
+        L2_flag = true;
     }
 
     //Initilize needed Cache and Read/Write Counters
@@ -73,80 +73,130 @@ void cache_sim() {
     int L1_write_count = 0; int L1_write_miss_count = 0;
     int L2_read_count = 0; int L2_read_miss_count = 0;
     int L2_write_count = 0; int L2_write_miss_count = 0;
-    Cache L1_Cache(L1_size, L1_assoc, blocksize); 
+    Cache L1_Cache(L1_size, L1_assoc, blocksize);
     Cache L2_Cache(L2_size, L2_assoc, blocksize, L2_flag);
-    
-    while(infile >> w_r >> address_str) {
+    int debug = 0;
+    while (infile >> w_r >> address_str) {
+        debug++;
+        if (debug == 100000){
+            goto endloop;
+        }
         /*
-        NOTE!!!! 
+        NOTE!!!!
         When doing a read, if the read misses, and I do a write,
         Do I count that Write as a Write and a Write Miss? Might have to
-        Test by adding those in later, for now they have been remove           
+        Test by adding those in later, for now they have been remove
+
+        IDK bro these counters are probably all wrong ass hell.
         */
-        bool missed_flag = false; 
+        bool missed_flag = false;
         int evicted_address = 0; //if there is nothing there its 0
-        int address = stoi(address_str, nullptr, 16);  
+        int thrown_out = 0; //the value that would get pushed up to l3 but l3 aint real so dont care
+        int address = stoi(address_str, nullptr, 16);
         //compare linearly the tags at the set associated with the index
-        if(w_r == 'r'){
+
+        if (w_r == 'r') {
             L1_read_count++;
             missed_flag = L1_Cache.read(address);
             // Read Miss at L1 Chace (L1 is the only Cache)
-            if(missed_flag && !L2_flag){
+            if ((missed_flag != 0) & (L2_flag == false)) {
                 L1_read_miss_count++;
-                evicted_address = L1_Cache.write(address); //prob unessary since unused
+                thrown_out = L1_Cache.write(address); //prob unessary since unused
                 L1_Cache.LRU_Update();
-                break;
             }
             // Read Miss at L1 Cache (L2 Cache Exist)
-            else if(missed_flag && L2_flag){
+            else if ((missed_flag != 0) & (L2_flag != false)) {
                 L1_read_miss_count++;
                 evicted_address = L1_Cache.write(address);
-
                 /* Question NOTE
-                //If Evicted Read/Write L2 of It Like He 
-                //Does in the output before doing the read/write for the Evictor
-                //Might need to play with to get correct values 
+                //If Evicted Read/Write L2 of Does in the output before doing the read/write for the Evictor
+                //Might need to play with to get correct values
                 */
-                if(evicted_address != 0){
+                if (evicted_address != 0) {
                     L2_read_count++;  ///////THIS ONE MIGHT NEED TO BE Removed
                     missed_flag = L2_Cache.read(evicted_address);
-                    if (missed_flag){
+                    if (missed_flag) {
                         L2_read_miss_count++;
-                        L2_Cache.write(evicted_address);
+                        thrown_out = L2_Cache.write(evicted_address);
                         L2_Cache.LRU_Update();
                     }
                     //Evicted Address hits at L2
-                    else{
+                    else {
                         L2_Cache.LRU_Update();
                     }
-                    
+
                 }
-                
                 //Increment and read for the current address at L2 after checking 
                 //and parsing and eviction
                 L2_read_count++;
                 missed_flag = L2_Cache.read(address);
                 //Read Miss at L2
-                if(missed_flag){
+                if (missed_flag) {
                     L2_read_miss_count++;
-                    L2_Cache.write(address);
+                    thrown_out = L2_Cache.write(address);
                     L2_Cache.LRU_Update();
                 }
                 //Else its a Hit update LRU 
-                else{
+                else {
                     L2_Cache.LRU_Update();
                 }
                 //Either way Update L1 LRU counter
                 L1_Cache.LRU_Update();
             }
             //Hit Just Update LRU
-            else{
+            else {
                 L1_Cache.LRU_Update();
             }
-        
         }
 
-        else if(w_r == 'w'){
+
+        /* No Rest For the Wicked.... I am tired */
+        else if (w_r == 'w') {
+            L1_write_count++;
+            missed_flag = L1_Cache.read(address);
+
+            if ((missed_flag != 0) & (L2_flag == false)) {
+                L1_write_miss_count++;
+                thrown_out = L1_Cache.write(address);
+                L1_Cache.LRU_Update();
+            }
+            else if ((missed_flag != 0) & (L2_flag != false)) {
+                L1_write_miss_count++;
+                evicted_address = L1_Cache.write(address);
+
+                if (evicted_address != 0) {
+                    L2_write_count++;
+                    missed_flag = L2_Cache.read(evicted_address);
+                    if (missed_flag) {
+                        //////This count is in question
+                        ///yeet
+                        //// NOTE
+                        L2_write_miss_count++;
+                        thrown_out = L2_Cache.write(evicted_address);
+                        L2_Cache.LRU_Update();
+                    }
+                    else {
+                        L2_Cache.LRU_Update();
+                    }
+                }
+
+                L2_write_count++;
+                missed_flag = L2_Cache.read(address);
+                if (missed_flag) {
+                    L2_write_miss_count++;
+                    thrown_out = L2_Cache.write(address);
+                    L2_Cache.LRU_Update();
+                }
+                else {
+                    L2_Cache.LRU_Update();
+                }
+                L1_Cache.LRU_Update();
+            }
+
+            else {
+                L1_Cache.LRU_Update();
+            }
+
 
         }
 
@@ -156,68 +206,22 @@ void cache_sim() {
         }
 
     }
+
+
+
+    //Print Stuff Out
+    endloop: {
+        cout << "===== L1 contents =====" << '\n';
+        L1_Cache.spit_out_data();
+        if (L2_flag) {
+            cout << '\n' << "===== L2 contents =====" << '\n';
+
+            L2_Cache.spit_out_data();
+    }
+    std::cout << '\n' << "pls rember that wen u feel scare or frigten" << '\n';
+    std::cout << "never forget ttimes wen u feeled happy" << '\n';
+    cout << "wen day is dark alway rember happy day" << endl;
     return;
+    }
 }
 
-/*
-store
-    check if tag match in L1
-        if hit in L1
-            - update LRU 
-            - increment write 
-        if miss in L1
-            - increment write miss
-            - check if there is an invalid block at that location
-            - if invalid block found
-                - store at that location 
-                - update LRU
-                - label dirty, and valid
-                - write block or whatever
-
-            - if all blocks valid
-                - single out block for eviction Should be oldest block (highest LRU)
-                - store block at location of evicted block
-                    - label block dirty, and valid
-                    - update LRU
-                - send victim block to next level up and store
-                
-                read L2 cache 
-                    if hit at L2
-                        - update LRU
-                        - increment Write
-                    if miss:
-                        - increment write miss
-                        - check if there is invalid block
-                        if invalid block found
-                            - store at that location 
-                            - update LRU
-                            - label dirty, and valid
-                            - write block or whatever
-                        if no invalid block found
-                            - single out block for eviction Should be oldest block (highest LRU)
-                            - store block at location of evicted block
-                                - label block dirty, and valid
-                                - update LRU
-                            - Yeet the victim block out of existence because no higher level 
-                            
-load
-    check if tag match in L1
-        if hit in L1
-            - update LRU
-            - increment read
-            return 
-        if miss in L1
-            - increments read and misses
-            - increment LRU
-            - store() the value at the index.
-            
-            check if tag match at l2
-                if hit in l2
-                    update LRU 
-                    - increment l2 reads
-                if miss in l2
-                    increment l2 read and misses
-                    - update LRU
-                    store() the value at index
-            
-*/

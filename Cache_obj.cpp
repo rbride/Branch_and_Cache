@@ -11,11 +11,10 @@ Cache::Cache(int size, int assoc, int block_size, bool on) {
         //Resize Cache to Proper Set Size
         cache.resize(num_sets);
          /*
-        NOTE!!!! 
-        this was ++i    Idk did I or chris make and error
+        NOTE!!!! this was ++i    Idk did I or chris make and error
         */
         for (size_t i = 0; i < cache.size(); i++) {
-            cache[i].resize(assoc, {0, 0, false, false});    //LRU counter Removed Data added   
+            cache[i].resize(assoc, {0, 0, 0, false, false});    //LRU counter Removed Data added   
         }
         //Generate Values for masks 
         for (int i = 0; i < num_index_bits; i++){
@@ -36,14 +35,9 @@ bool Cache::read(int address) {
     tag_in = address >> (num_index_bits + num_offset_bits);
     index_in = (address >> num_offset_bits) & mask_index;
     offset_in = address & mask_offset;
-    std::cout << "address: " << address << '\n';
-    std::cout << "tag Input: " << tag_in << '\n';
-    std::cout << "index input: " << index_in << '\n';
-    std::cout << "offset input: " << offset_in << '\n'; 
 
-    return 0;
     //Find if its there act accordingly
-    for(kwisatz_haderach; kwisatz_haderach < tags_in_Set; kwisatz_haderach++){
+    for(; kwisatz_haderach <= lru_counter_max_val; kwisatz_haderach++){
         if( cache[index_in][kwisatz_haderach].tag == tag_in ){
             //cache[index_in][kwisatz_haderach].tag = tag_in; 
             return false; 
@@ -55,41 +49,37 @@ bool Cache::read(int address) {
 
 int Cache::write(int address){
     /* Question 
-    I I Write to a block, and its there, I am pretty sure I am suppose to no longer
-    label it as dirty, we can test this by doing so and comparing my results to the output
+    when the fuck do I remove the dirty flag?
     */
     //Awaken The Sleeper (Reset The Kwitsatz Haderach)
+    int wtag = address >> (num_index_bits + num_offset_bits);
+    int windex = (address >> num_offset_bits) & mask_index;
+    int woffset = address & mask_offset;
     kwisatz_haderach = 0;
     //Check for invalid bits if so dump it there index in order
-    for(kwisatz_haderach; kwisatz_haderach < tags_in_Set; kwisatz_haderach++){
-        if( !cache[index_in][kwisatz_haderach].valid ){
-            cache[index_in][kwisatz_haderach].tag = tag_in;
-            cache[index_in][kwisatz_haderach].valid = true;
-            cache[index_in][kwisatz_haderach].dirty = true;
-            cache[index_in][kwisatz_haderach].data = offset_in;
-            cache[index_in][kwisatz_haderach].index = kwisatz_haderach;
+    for(; kwisatz_haderach <= lru_counter_max_val; kwisatz_haderach++){
+        if( !cache[windex][kwisatz_haderach].valid ){
+            cache[windex][kwisatz_haderach].tag = wtag;
+            cache[windex][kwisatz_haderach].valid = true;
+            cache[windex][kwisatz_haderach].dirty = true;
+            cache[windex][kwisatz_haderach].data = woffset;
+            cache[windex][kwisatz_haderach].index = kwisatz_haderach;
             return static_cast<int>(0);
         }
     }
     //No Invalid Bits, Evict the last one First undo the math to seperate the bits
     int evicted_address = (
-        (cache[index_in][lru_counter_max_val].tag << (num_index_bits + num_offset_bits)) 
-      | (cache[index_in][lru_counter_max_val].index << num_offset_bits)
-      | cache[index_in][lru_counter_max_val].data 
+        (cache[windex][lru_counter_max_val].tag << (num_index_bits + num_offset_bits)) 
+      | (cache[windex][lru_counter_max_val].index << num_offset_bits)
+      | cache[windex][lru_counter_max_val].data 
       );
     //Replace data at evicted spot
-    cache[index_in][lru_counter_max_val].tag = tag_in;
-    cache[index_in][lru_counter_max_val].valid = true;
-    /* Question NOTE
-    Is This Where I make Dirty False??
-    Idk I think s
-    */
-    cache[index_in][lru_counter_max_val].dirty = false;
-    cache[index_in][lru_counter_max_val].data = offset_in;
-    cache[index_in][lru_counter_max_val].index = lru_counter_max_val;
-
+    cache[windex][lru_counter_max_val].tag = wtag;
+    cache[windex][lru_counter_max_val].valid = true;
+    cache[windex][lru_counter_max_val].dirty = false;
+    cache[windex][lru_counter_max_val].data = woffset;
+    cache[windex][lru_counter_max_val].index = lru_counter_max_val;
     return(evicted_address);
-
 }
 
 void Cache::LRU_Update() {
@@ -117,5 +107,17 @@ void Cache::LRU_Update() {
     return;
 }
 
-//Repeat Read and Write again for the Write part, fuck it, just do it so that you check the data 
-//IF the index is there and the data changes update the bit to fucking not dirty
+//  for(kwisatz_haderach; kwisatz_haderach < tags_in_Set; kwisatz_haderach++){
+//         if( !cache[index_in][kwisatz_haderach].valid ){
+      
+void Cache::spit_out_data(){
+    for (int i = 0; i < num_sets; i++ ){
+        std::cout << "set\t" << i << ':' << '\t';
+        for(int q = 0; q <= lru_counter_max_val; q++){
+            std::cout << std::hex << cache[i][q].tag << ' ' << std::dec << cache[i][q].dirty << ' ';
+        }
+    std::cout << '\n';  
+    }
+
+
+}

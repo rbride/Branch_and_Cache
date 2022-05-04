@@ -21,6 +21,7 @@ public:
     bool read(int address);
     int write(int address); //int to pass up address
     void LRU_Update();
+    void spit_out_data();
 
 private:
     std::vector<std::vector<Cache_Line>> cache;
