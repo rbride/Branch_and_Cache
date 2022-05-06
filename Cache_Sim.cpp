@@ -27,6 +27,7 @@ int main() {
         switch (mode) {
         case 1:
             cache_sim();
+            
             break;
         case 2:
             return 0;
@@ -77,18 +78,11 @@ void cache_sim() {
     Cache L2_Cache(L2_size, L2_assoc, blocksize, L2_flag);
     int debug = 0;
     while (infile >> w_r >> address_str) {
-        debug++;
-        if (debug == 100000){
-            goto endloop;
-        }
-        /*
-        NOTE!!!!
-        When doing a read, if the read misses, and I do a write,
-        Do I count that Write as a Write and a Write Miss? Might have to
-        Test by adding those in later, for now they have been remove
-
-        IDK bro these counters are probably all wrong ass hell.
-        */
+        // debug++;
+        // if (debug == 100000) {
+        //     break;
+        // }
+    
         bool missed_flag = false;
         int evicted_address = 0; //if there is nothing there its 0
         int thrown_out = 0; //the value that would get pushed up to l3 but l3 aint real so dont care
@@ -99,21 +93,18 @@ void cache_sim() {
             L1_read_count++;
             missed_flag = L1_Cache.read(address);
             // Read Miss at L1 Chace (L1 is the only Cache)
-            if ((missed_flag != 0) & (L2_flag == false)) {
+            if ((missed_flag != 0) && (L2_flag == false)) {
                 L1_read_miss_count++;
-                thrown_out = L1_Cache.write(address); //prob unessary since unused
+                thrown_out = L1_Cache.write(address); 
                 L1_Cache.LRU_Update();
             }
             // Read Miss at L1 Cache (L2 Cache Exist)
-            else if ((missed_flag != 0) & (L2_flag != false)) {
+            else if ((missed_flag != 0) && (L2_flag != false)) {
                 L1_read_miss_count++;
                 evicted_address = L1_Cache.write(address);
-                /* Question NOTE
-                //If Evicted Read/Write L2 of Does in the output before doing the read/write for the Evictor
-                //Might need to play with to get correct values
-                */
+
                 if (evicted_address != 0) {
-                    L2_read_count++;  ///////THIS ONE MIGHT NEED TO BE Removed
+                    L2_read_count++;
                     missed_flag = L2_Cache.read(evicted_address);
                     if (missed_flag) {
                         L2_read_miss_count++;
@@ -126,8 +117,7 @@ void cache_sim() {
                     }
 
                 }
-                //Increment and read for the current address at L2 after checking 
-                //and parsing and eviction
+                //Increment and read for the current address at L2 after parsing and eviction
                 L2_read_count++;
                 missed_flag = L2_Cache.read(address);
                 //Read Miss at L2
@@ -150,29 +140,28 @@ void cache_sim() {
         }
 
 
-        /* No Rest For the Wicked.... I am tired */
         else if (w_r == 'w') {
             L1_write_count++;
-            missed_flag = L1_Cache.read(address);
+            missed_flag = L1_Cache.read(address, true);
 
-            if ((missed_flag != 0) & (L2_flag == false)) {
+            if ((missed_flag != 0) && (L2_flag == false)) {
                 L1_write_miss_count++;
-                thrown_out = L1_Cache.write(address);
+                thrown_out = L1_Cache.write(address, true);
                 L1_Cache.LRU_Update();
             }
-            else if ((missed_flag != 0) & (L2_flag != false)) {
+            else if ((missed_flag != 0) && (L2_flag != false)) {
                 L1_write_miss_count++;
-                evicted_address = L1_Cache.write(address);
+                evicted_address = L1_Cache.write(address, true);
 
                 if (evicted_address != 0) {
                     L2_write_count++;
-                    missed_flag = L2_Cache.read(evicted_address);
+                    missed_flag = L2_Cache.read(evicted_address, true);
                     if (missed_flag) {
                         //////This count is in question
                         ///yeet
                         //// NOTE
                         L2_write_miss_count++;
-                        thrown_out = L2_Cache.write(evicted_address);
+                        thrown_out = L2_Cache.write(evicted_address, true);
                         L2_Cache.LRU_Update();
                     }
                     else {
@@ -181,10 +170,10 @@ void cache_sim() {
                 }
 
                 L2_write_count++;
-                missed_flag = L2_Cache.read(address);
+                missed_flag = L2_Cache.read(address, true);
                 if (missed_flag) {
                     L2_write_miss_count++;
-                    thrown_out = L2_Cache.write(address);
+                    thrown_out = L2_Cache.write(address, true);
                     L2_Cache.LRU_Update();
                 }
                 else {
@@ -194,9 +183,9 @@ void cache_sim() {
             }
 
             else {
+
                 L1_Cache.LRU_Update();
             }
-
 
         }
 
@@ -207,21 +196,14 @@ void cache_sim() {
 
     }
 
-
-
     //Print Stuff Out
-    endloop: {
-        cout << "===== L1 contents =====" << '\n';
-        L1_Cache.spit_out_data();
-        if (L2_flag) {
-            cout << '\n' << "===== L2 contents =====" << '\n';
 
-            L2_Cache.spit_out_data();
+    outfile << "===== L1 contents =====" << '\n';
+    L1_Cache.spit_out_data(outfile);
+    if (L2_flag) {
+        outfile << '\n' << "===== L2 contents =====" << '\n';
+
+        L2_Cache.spit_out_data(outfile);
     }
-    std::cout << '\n' << "pls rember that wen u feel scare or frigten" << '\n';
-    std::cout << "never forget ttimes wen u feeled happy" << '\n';
-    cout << "wen day is dark alway rember happy day" << endl;
     return;
-    }
 }
-

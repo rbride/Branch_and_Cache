@@ -7,6 +7,5 @@
 #include <cmath>
 
 void cache_sim();
-void get_line();
 
 #endif
