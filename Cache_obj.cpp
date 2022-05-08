@@ -2,95 +2,117 @@
 #include <cmath>
 #include <iostream>
 #include <fstream>
-using std::vector;
+
+using namespace std;
 
 Cache::Cache(int size, int assoc, int block_size, bool on) {
     if (on) {
+        cout << "Standing Here \n";
+
         num_sets = size / (block_size * assoc);
-        num_offset_bits = static_cast<int>(log(block_size) / log(2));
-        num_index_bits = static_cast<int>(log(num_sets) / log(2));
+        num_offset_bits = static_cast<int>(std::log(block_size) / std::log(2));
+        num_index_bits = static_cast<int>(std::log(num_sets) / std::log(2));
+        cout << "I realize \n";
         //Resize Cache to Proper Set Size
         cache.resize(num_sets);
-        /*
-       NOTE!!!! this was ++i    Idk did I or chris make and error
-       */
-        for (size_t i = 0; i < cache.size(); i++) {
-            cache[i].resize(assoc, { 0, 0, 0, false, false });    //LRU counter Removed Data added   
+        cout << "you were just like me \n";
+        
+        for (int i = 0; i < num_sets; i++) {
+            cout << " i " << i;
+            cache[i].resize(assoc);
+            for(int j = 0; j < assoc; j++){
+                cout << " j " << j;
+                cache[i][j].tag = 0;
+                cache[i][j].index = 0;
+                cache[i][j].LRU_Counter = 0;
+                cache[i][j].data = 0;
+                cache[i][j].dirty = false;
+                cache[i][j].valid = false;
+            }
         }
+        cout << "trying to make history\n";
+
         //Generate Values for masks 
         for (int i = 0; i < num_index_bits; i++) {
             mask_index = (mask_index << 1) | 1;
         }
+        cout << "violence makes violence \n";
         for (int i = 0; i < num_offset_bits; i++) {
             mask_offset = (mask_offset << 1) | 1;
         }
         lru_counter_max_val = assoc - 1;
+        tag_placement_indicator = 0;
         tags_in_Set = assoc;
-        kwisatz_haderach = 0;
+        cout << "idk the rest of the lyrics \n";
     }
 }
 
-bool Cache::read(int address, bool w_flag) {
+bool Cache::read(int address, bool d_flag) {
     //Awaken The Sleeper (Reset The Kwitsatz Haderach)
-    kwisatz_haderach = 0;
+    tag_placement_indicator = 0;
     tag_in = address >> (num_index_bits + num_offset_bits);
     index_in = (address >> num_offset_bits) & mask_index;
     offset_in = address & mask_offset;
 
     //Find if its there act accordingly
-    for (; kwisatz_haderach <= lru_counter_max_val; kwisatz_haderach++) {
-        if (cache[index_in][kwisatz_haderach].tag == tag_in) {
-            if (w_flag){
-                cache[index_in][kwisatz_haderach].dirty = true; 
+    for (; tag_placement_indicator <= lru_counter_max_val; tag_placement_indicator++) {
+        if (cache[index_in][tag_placement_indicator].tag == tag_in) {
+            if (d_flag) {
+                cache[index_in][tag_placement_indicator].dirty = true;
             }
             return false;
         }
     }
-
     //Data is not in This Cache, Read is a miss.
     return true;
 }
 
 
-int Cache::write(int address, bool w_flag) {
+int Cache::write(int address, bool d_flag) {
     //Awaken The Sleeper (Reset The Kwitsatz Haderach)
     int wtag = address >> (num_index_bits + num_offset_bits);
     int windex = (address >> num_offset_bits) & mask_index;
     int woffset = address & mask_offset;
-    kwisatz_haderach = 0;
+    tag_placement_indicator = 0;
     //Check for invalid bits if so dump it there index in order
-    for (; kwisatz_haderach <= lru_counter_max_val; kwisatz_haderach++) {
-        if (!cache[windex][kwisatz_haderach].valid) {
-            cache[windex][kwisatz_haderach].tag = wtag;
-            cache[windex][kwisatz_haderach].valid = true;
-            cache[windex][kwisatz_haderach].data = woffset;
-            cache[windex][kwisatz_haderach].index = kwisatz_haderach;
+    for (; tag_placement_indicator <= lru_counter_max_val; tag_placement_indicator++) {
+        if (!cache[windex][tag_placement_indicator].valid) {
+            cache[windex][tag_placement_indicator].tag = wtag;
+            cache[windex][tag_placement_indicator].valid = true;
+            cache[windex][tag_placement_indicator].data = woffset;
+            cache[windex][tag_placement_indicator].index = tag_placement_indicator;
             //If the Cache is operating a Write Command Label the new bit Dirty
-            if(w_flag){
-                cache[windex][kwisatz_haderach].dirty = true;
+            if (d_flag) {
+                cache[windex][tag_placement_indicator].dirty = true;
             }
             //No eviction so return address 0;
             return 0;
         }
     }
+    evic_loc = 0;
+    for (int i = 0; i < tags_in_Set; i++) {
+        if (evic_loc < cache[windex][i].LRU_Counter) {
+            evic_loc = i;
+        }
+    }
+
     //No Invalid Bits, Evict the last one First undo the math to seperate the bits
     int evicted_address = (
-        (cache[windex][lru_counter_max_val].tag << (num_index_bits + num_offset_bits))
-        | (cache[windex][lru_counter_max_val].index << num_offset_bits)
-        | cache[windex][lru_counter_max_val].data
+        (cache[windex][evic_loc].tag << (num_index_bits + num_offset_bits))
+        | (cache[windex][evic_loc].index << num_offset_bits)
+        | cache[windex][evic_loc].data
         );
     //Replace data at evicted spot
-    cache[windex][lru_counter_max_val].tag = wtag;
-    cache[windex][lru_counter_max_val].valid = true;
-    if(w_flag){
-        cache[windex][lru_counter_max_val].dirty = true;   ///////ffffffff
+    cache[windex][evic_loc].tag = wtag;
+    cache[windex][evic_loc].valid = true;
+    if (d_flag) {
+        cache[windex][evic_loc].dirty = true;   ///////ffffffff
     }
-    else{
-        cache[windex][lru_counter_max_val].dirty = false;   ///////ffffffff
+    else {
+        cache[windex][evic_loc].dirty = false;   ///////ffffffff
 
     }
-    cache[windex][lru_counter_max_val].data = woffset;
-    cache[windex][lru_counter_max_val].index = lru_counter_max_val;
+    cache[windex][evic_loc].data = woffset;
     return(evicted_address);
 }
 
@@ -98,28 +120,25 @@ void Cache::LRU_Update() {
     if (tags_in_Set == 1) {
         return;
     }
-    // If there is two sets instead of 1 and we are on 2 we just iter swap
-    // vec elem 1 wit vect elem 0 two simulate a LRU counter ie second becomes first   
-    if ( tags_in_Set == 2 && kwisatz_haderach) {
-        std::iter_swap(cache[index_in].begin(), cache[index_in].end());
+    //There are >2 Tags per set
+    else {
+        //The one being pointed to is already newest, i.e no updated needed
+        for (int i = 0; i < tags_in_Set; i++) {
+            if ( (i == evic_loc) && (evic_loc != 0)) {
+                cache[index_in][i].LRU_Counter = 0;
+            }
+            else if ((evic_loc == 0) && (i == tag_placement_indicator)) {
+                cache[index_in][i].LRU_Counter = 0;
+            }
+            else {
+                ++cache[index_in][i].LRU_Counter;
+            }
+        }
         return;
     }
-    // incase #sets > 2 first one is because kwitz_had plus 1 will fail if its the final one
-    if (kwisatz_haderach == lru_counter_max_val) {
-        std::rotate(cache[index_in].rbegin(),
-            cache[index_in].rbegin() + 1,
-            cache[index_in].rend());
-    }
-    //Niether of the above to cases rotate accordingly
-    else {
-        std::rotate(cache[index_in].begin(),
-            cache[index_in].begin() + kwisatz_haderach,
-            cache[index_in].begin() + kwisatz_haderach + 1);
-    }
-    return;
 }
 
-void Cache::spit_out_data(std::ofstream &outputfile) {
+void Cache::spit_out_data(std::ofstream& outputfile) {
     for (int i = 0; i < num_sets; i++) {
         outputfile << "set\t" << std::dec << i << ':' << '\t';
         for (int q = 0; q <= lru_counter_max_val; q++) {
@@ -131,7 +150,6 @@ void Cache::spit_out_data(std::ofstream &outputfile) {
                 outputfile << "   ";
             }
         }
-
         outputfile << '\n';
     }
     return;

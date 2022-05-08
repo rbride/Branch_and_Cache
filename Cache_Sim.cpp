@@ -27,7 +27,7 @@ int main() {
         switch (mode) {
         case 1:
             cache_sim();
-            
+
             break;
         case 2:
             return 0;
@@ -63,43 +63,54 @@ void cache_sim() {
     cin >> L1_assoc;
     cout << "\nEnter L2 Cache Size:\n";
     cin >> L2_size;
+    cout << "\nEnter L2 Associativity:\n";
+    cin >> L2_assoc;
+    cout << "";
     if (L2_size != 0) {
-        cout << "\nEnter L2 Associativity:\n";
-        cin >> L2_assoc;
         L2_flag = true;
+        cout << "l2 flag set to true \n";
     }
+    else {
+        L2_flag = false;
+        cout << "l2 flag set to false \n";
+
+    }
+    cout << "l2 flag good to go";
+
 
     //Initilize needed Cache and Read/Write Counters
     int L1_read_count = 0; int L1_read_miss_count = 0;
     int L1_write_count = 0; int L1_write_miss_count = 0;
     int L2_read_count = 0; int L2_read_miss_count = 0;
     int L2_write_count = 0; int L2_write_miss_count = 0;
-    Cache L1_Cache(L1_size, L1_assoc, blocksize);
+    cout << "about to make l1 \n";
+
+    Cache L1_Cache(L1_size, L1_assoc, blocksize, true);
+    cout << "l1 cache created";
+
     Cache L2_Cache(L2_size, L2_assoc, blocksize, L2_flag);
-    int debug = 0;
+
+    cout << "l2 cache created";
+
+
     while (infile >> w_r >> address_str) {
-        // debug++;
-        // if (debug == 100000) {
-        //     break;
-        // }
-    
         bool missed_flag = false;
         int evicted_address = 0; //if there is nothing there its 0
         int thrown_out = 0; //the value that would get pushed up to l3 but l3 aint real so dont care
         int address = stoi(address_str, nullptr, 16);
+        outfile << "yeet" << '\t';
         //compare linearly the tags at the set associated with the index
-
         if (w_r == 'r') {
             L1_read_count++;
             missed_flag = L1_Cache.read(address);
             // Read Miss at L1 Chace (L1 is the only Cache)
             if ((missed_flag != 0) && (L2_flag == false)) {
                 L1_read_miss_count++;
-                thrown_out = L1_Cache.write(address); 
+                thrown_out = L1_Cache.write(address);
                 L1_Cache.LRU_Update();
             }
             // Read Miss at L1 Cache (L2 Cache Exist)
-            else if ((missed_flag != 0) && (L2_flag != false)) {
+            else if ((missed_flag != 0) && (L2_flag == true)) {
                 L1_read_miss_count++;
                 evicted_address = L1_Cache.write(address);
 
@@ -107,7 +118,7 @@ void cache_sim() {
                     L2_read_count++;
                     missed_flag = L2_Cache.read(evicted_address);
                     if (missed_flag) {
-                        L2_read_miss_count++;
+                        //L2_read_miss_count++;
                         thrown_out = L2_Cache.write(evicted_address);
                         L2_Cache.LRU_Update();
                     }
@@ -139,41 +150,35 @@ void cache_sim() {
             }
         }
 
-
         else if (w_r == 'w') {
             L1_write_count++;
             missed_flag = L1_Cache.read(address, true);
-
             if ((missed_flag != 0) && (L2_flag == false)) {
                 L1_write_miss_count++;
                 thrown_out = L1_Cache.write(address, true);
                 L1_Cache.LRU_Update();
             }
-            else if ((missed_flag != 0) && (L2_flag != false)) {
+
+            else if ((missed_flag != 0) && (L2_flag == false)) {
                 L1_write_miss_count++;
                 evicted_address = L1_Cache.write(address, true);
 
                 if (evicted_address != 0) {
-                    L2_write_count++;
-                    missed_flag = L2_Cache.read(evicted_address, true);
+                    missed_flag = L2_Cache.read(evicted_address, false);
                     if (missed_flag) {
-                        //////This count is in question
-                        ///yeet
-                        //// NOTE
                         L2_write_miss_count++;
-                        thrown_out = L2_Cache.write(evicted_address, true);
+                        thrown_out = L2_Cache.write(evicted_address, false);
                         L2_Cache.LRU_Update();
                     }
                     else {
                         L2_Cache.LRU_Update();
                     }
                 }
-
                 L2_write_count++;
                 missed_flag = L2_Cache.read(address, true);
                 if (missed_flag) {
                     L2_write_miss_count++;
-                    thrown_out = L2_Cache.write(address, true);
+                    thrown_out = L2_Cache.write(address, false);
                     L2_Cache.LRU_Update();
                 }
                 else {
@@ -183,10 +188,10 @@ void cache_sim() {
             }
 
             else {
-
+                //write data to L1 if hit and set dirty, as it may have changed
+                thrown_out = L1_Cache.write(address, true);
                 L1_Cache.LRU_Update();
             }
-
         }
 
         else {
@@ -195,9 +200,15 @@ void cache_sim() {
         }
 
     }
-
+    double miss_rate = ( static_cast<double>(L1_read_miss_count+L1_write_miss_count) 
+        / static_cast<double>(L1_read_count+L1_write_count));
+    cout << miss_rate;
     //Print Stuff Out
-
+    outfile << "===== Simulator configuration =====\n";  
+    outfile << "BLOCKSIZE:  " << std::dec << blocksize << '\n' << "L1_SIZE: " << L1_size << '\n';
+    outfile << "L1_ASSOC:   " << L1_assoc << '\n' << "L1_PSEUDO-ASSOC-EN:  0\n";
+    outfile <<  "L2_SIZE: " << L2_size << '\n' << "L2_ASSOC:   " << L2_assoc << '\n';
+    outfile << "L2_PSEUDO-ASSOC-EN:  0\n" << "trace_file: " << InFileName << '\n'; 
     outfile << "===== L1 contents =====" << '\n';
     L1_Cache.spit_out_data(outfile);
     if (L2_flag) {
@@ -205,5 +216,14 @@ void cache_sim() {
 
         L2_Cache.spit_out_data(outfile);
     }
+    outfile << "===== Simulation results (raw) =====\n";
+    outfile << "a. number of L1 reads: " << std::dec << L1_read_count << '\n';
+    outfile << "b. number of L1 read misses: " << L1_read_miss_count << '\n';
+    outfile << "c. number of L1 writes: " << L1_write_count << '\n';
+    outfile << "d. number of L1 write misses: " << L1_write_miss_count << '\n';
+    outfile << "e. L1 miss rate: " << miss_rate << '\n';
+
+    infile.close();
+    outfile.close();
     return;
 }
