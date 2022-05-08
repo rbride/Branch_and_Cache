@@ -18,6 +18,7 @@ public:
     Cache(int size, int assoc, int block_size, bool on);
     bool read(int address, bool w_flag = false);
     int write(int address, bool w_flag = false); //int to pass up address
+    void update_stored();
     void LRU_Update();
     void spit_out_data(std::ofstream&);
 

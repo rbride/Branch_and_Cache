@@ -7,21 +7,15 @@ using namespace std;
 
 Cache::Cache(int size, int assoc, int block_size, bool on) {
     if (on) {
-        cout << "Standing Here \n";
-
         num_sets = size / (block_size * assoc);
         num_offset_bits = static_cast<int>(std::log(block_size) / std::log(2));
         num_index_bits = static_cast<int>(std::log(num_sets) / std::log(2));
-        cout << "I realize \n";
         //Resize Cache to Proper Set Size
         cache.resize(num_sets);
-        cout << "you were just like me \n";
         
         for (int i = 0; i < num_sets; i++) {
-            cout << " i " << i;
             cache[i].resize(assoc);
             for(int j = 0; j < assoc; j++){
-                cout << " j " << j;
                 cache[i][j].tag = 0;
                 cache[i][j].index = 0;
                 cache[i][j].LRU_Counter = 0;
@@ -30,20 +24,16 @@ Cache::Cache(int size, int assoc, int block_size, bool on) {
                 cache[i][j].valid = false;
             }
         }
-        cout << "trying to make history\n";
-
         //Generate Values for masks 
         for (int i = 0; i < num_index_bits; i++) {
             mask_index = (mask_index << 1) | 1;
         }
-        cout << "violence makes violence \n";
         for (int i = 0; i < num_offset_bits; i++) {
             mask_offset = (mask_offset << 1) | 1;
         }
         lru_counter_max_val = assoc - 1;
         tag_placement_indicator = 0;
         tags_in_Set = assoc;
-        cout << "idk the rest of the lyrics \n";
     }
 }
 
@@ -67,6 +57,15 @@ bool Cache::read(int address, bool d_flag) {
     return true;
 }
 
+void Cache::update_stored(){
+    //The Value is already there and just needs updated
+    cache[index_in][tag_placement_indicator].valid = true;
+    cache[index_in][tag_placement_indicator].dirty = true;
+    cache[index_in][tag_placement_indicator].data = offset_in;
+    cache[index_in][tag_placement_indicator].index = tag_placement_indicator;
+    cache[index_in][tag_placement_indicator].tag = tag_in;
+    return;
+}
 
 int Cache::write(int address, bool d_flag) {
     //Awaken The Sleeper (Reset The Kwitsatz Haderach)

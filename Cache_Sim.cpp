@@ -68,29 +68,23 @@ void cache_sim() {
     cout << "";
     if (L2_size != 0) {
         L2_flag = true;
-        cout << "l2 flag set to true \n";
     }
     else {
         L2_flag = false;
-        cout << "l2 flag set to false \n";
 
     }
-    cout << "l2 flag good to go";
-
 
     //Initilize needed Cache and Read/Write Counters
     int L1_read_count = 0; int L1_read_miss_count = 0;
     int L1_write_count = 0; int L1_write_miss_count = 0;
     int L2_read_count = 0; int L2_read_miss_count = 0;
     int L2_write_count = 0; int L2_write_miss_count = 0;
-    cout << "about to make l1 \n";
-
     Cache L1_Cache(L1_size, L1_assoc, blocksize, true);
-    cout << "l1 cache created";
+    cout << "l1 cache created\t";
 
     Cache L2_Cache(L2_size, L2_assoc, blocksize, L2_flag);
 
-    cout << "l2 cache created";
+    cout << "l2 cache created\n";
 
 
     while (infile >> w_r >> address_str) {
@@ -98,7 +92,6 @@ void cache_sim() {
         int evicted_address = 0; //if there is nothing there its 0
         int thrown_out = 0; //the value that would get pushed up to l3 but l3 aint real so dont care
         int address = stoi(address_str, nullptr, 16);
-        outfile << "yeet" << '\t';
         //compare linearly the tags at the set associated with the index
         if (w_r == 'r') {
             L1_read_count++;
@@ -189,7 +182,7 @@ void cache_sim() {
 
             else {
                 //write data to L1 if hit and set dirty, as it may have changed
-                thrown_out = L1_Cache.write(address, true);
+                L1_Cache.update_stored();
                 L1_Cache.LRU_Update();
             }
         }
