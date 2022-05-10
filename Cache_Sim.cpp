@@ -15,7 +15,6 @@
 #include <string>
 
 using namespace std;
-
 static bool L2_flag = false;
 void cache_sim();
 
@@ -65,7 +64,6 @@ void cache_sim() {
     cin >> L2_size;
     cout << "\nEnter L2 Associativity:\n";
     cin >> L2_assoc;
-    cout << "";
     if (L2_size != 0) {
         L2_flag = true;
     }
@@ -80,18 +78,15 @@ void cache_sim() {
     int L2_read_count = 0; int L2_read_miss_count = 0;
     int L2_write_count = 0; int L2_write_miss_count = 0;
     Cache L1_Cache(L1_size, L1_assoc, blocksize, true);
-    cout << "l1 cache created\t";
-
     Cache L2_Cache(L2_size, L2_assoc, blocksize, L2_flag);
-
-    cout << "l2 cache created\n";
-
+    int debug = 0;
 
     while (infile >> w_r >> address_str) {
         bool missed_flag = false;
         int evicted_address = 0; //if there is nothing there its 0
         int thrown_out = 0; //the value that would get pushed up to l3 but l3 aint real so dont care
         int address = stoi(address_str, nullptr, 16);
+
         //compare linearly the tags at the set associated with the index
         if (w_r == 'r') {
             L1_read_count++;
@@ -175,6 +170,7 @@ void cache_sim() {
                     L2_Cache.LRU_Update();
                 }
                 else {
+                    L2_Cache.update_stored();
                     L2_Cache.LRU_Update();
                 }
                 L1_Cache.LRU_Update();
@@ -193,15 +189,15 @@ void cache_sim() {
         }
 
     }
-    double miss_rate = ( static_cast<double>(L1_read_miss_count+L1_write_miss_count) 
-        / static_cast<double>(L1_read_count+L1_write_count));
+    double miss_rate = (static_cast<double>(L1_read_miss_count + L1_write_miss_count)
+        / static_cast<double>(L1_read_count + L1_write_count));
     cout << miss_rate;
     //Print Stuff Out
-    outfile << "===== Simulator configuration =====\n";  
+    outfile << "===== Simulator configuration =====\n";
     outfile << "BLOCKSIZE:  " << std::dec << blocksize << '\n' << "L1_SIZE: " << L1_size << '\n';
     outfile << "L1_ASSOC:   " << L1_assoc << '\n' << "L1_PSEUDO-ASSOC-EN:  0\n";
-    outfile <<  "L2_SIZE: " << L2_size << '\n' << "L2_ASSOC:   " << L2_assoc << '\n';
-    outfile << "L2_PSEUDO-ASSOC-EN:  0\n" << "trace_file: " << InFileName << '\n'; 
+    outfile << "L2_SIZE: " << L2_size << '\n' << "L2_ASSOC:   " << L2_assoc << '\n';
+    outfile << "L2_PSEUDO-ASSOC-EN:  0\n" << "trace_file: " << InFileName << '\n';
     outfile << "===== L1 contents =====" << '\n';
     L1_Cache.spit_out_data(outfile);
     if (L2_flag) {

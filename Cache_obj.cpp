@@ -12,10 +12,10 @@ Cache::Cache(int size, int assoc, int block_size, bool on) {
         num_index_bits = static_cast<int>(std::log(num_sets) / std::log(2));
         //Resize Cache to Proper Set Size
         cache.resize(num_sets);
-        
+
         for (int i = 0; i < num_sets; i++) {
             cache[i].resize(assoc);
-            for(int j = 0; j < assoc; j++){
+            for (int j = 0; j < assoc; j++) {
                 cache[i][j].tag = 0;
                 cache[i][j].index = 0;
                 cache[i][j].LRU_Counter = 0;
@@ -25,6 +25,8 @@ Cache::Cache(int size, int assoc, int block_size, bool on) {
             }
         }
         //Generate Values for masks 
+        mask_index = 0;
+        mask_offset = 0;
         for (int i = 0; i < num_index_bits; i++) {
             mask_index = (mask_index << 1) | 1;
         }
@@ -34,6 +36,8 @@ Cache::Cache(int size, int assoc, int block_size, bool on) {
         lru_counter_max_val = assoc - 1;
         tag_placement_indicator = 0;
         tags_in_Set = assoc;
+        //indicator for evicted address
+        address_evicted_flag = false;
     }
 }
 
@@ -57,22 +61,13 @@ bool Cache::read(int address, bool d_flag) {
     return true;
 }
 
-void Cache::update_stored(){
-    //The Value is already there and just needs updated
-    cache[index_in][tag_placement_indicator].valid = true;
-    cache[index_in][tag_placement_indicator].dirty = true;
-    cache[index_in][tag_placement_indicator].data = offset_in;
-    cache[index_in][tag_placement_indicator].index = tag_placement_indicator;
-    cache[index_in][tag_placement_indicator].tag = tag_in;
-    return;
-}
-
 int Cache::write(int address, bool d_flag) {
     //Awaken The Sleeper (Reset The Kwitsatz Haderach)
     int wtag = address >> (num_index_bits + num_offset_bits);
     int windex = (address >> num_offset_bits) & mask_index;
     int woffset = address & mask_offset;
     tag_placement_indicator = 0;
+
     //Check for invalid bits if so dump it there index in order
     for (; tag_placement_indicator <= lru_counter_max_val; tag_placement_indicator++) {
         if (!cache[windex][tag_placement_indicator].valid) {
@@ -88,48 +83,87 @@ int Cache::write(int address, bool d_flag) {
             return 0;
         }
     }
-    evic_loc = 0;
-    for (int i = 0; i < tags_in_Set; i++) {
-        if (evic_loc < cache[windex][i].LRU_Counter) {
-            evic_loc = i;
-        }
-    }
 
+    //Get the Evict Location
+    determine_victim(windex);
     //No Invalid Bits, Evict the last one First undo the math to seperate the bits
     int evicted_address = (
         (cache[windex][evic_loc].tag << (num_index_bits + num_offset_bits))
         | (cache[windex][evic_loc].index << num_offset_bits)
         | cache[windex][evic_loc].data
         );
+
     //Replace data at evicted spot
     cache[windex][evic_loc].tag = wtag;
     cache[windex][evic_loc].valid = true;
     if (d_flag) {
-        cache[windex][evic_loc].dirty = true;   ///////ffffffff
+        cache[windex][evic_loc].dirty = true;   
     }
     else {
-        cache[windex][evic_loc].dirty = false;   ///////ffffffff
+        cache[windex][evic_loc].dirty = false;   
 
     }
     cache[windex][evic_loc].data = woffset;
+    //indicate and eviction
+    address_evicted_flag = true;
     return(evicted_address);
+}
+
+void Cache::determine_victim(int windex) {
+    evic_loc = 0; bool prior_dirty = false;
+    for (int i = 0; i < tags_in_Set; i++) {
+        if (cache[windex][evic_loc].LRU_Counter <= cache[windex][i].LRU_Counter) {
+            if (!prior_dirty) {
+                evic_loc = i;
+                prior_dirty = cache[windex][i].dirty;
+            }
+            else if (prior_dirty & cache[windex][i].dirty) {
+                evic_loc = i;
+                prior_dirty = true;
+            }
+        }
+    }
+    return;
+}
+
+void Cache::update_stored() {
+    //The Value is already there and just needs updated
+    cache[index_in][tag_placement_indicator].valid = true;
+    cache[index_in][tag_placement_indicator].dirty = true;
+    cache[index_in][tag_placement_indicator].data = offset_in;
+    cache[index_in][tag_placement_indicator].index = tag_placement_indicator;
+    cache[index_in][tag_placement_indicator].tag = tag_in;
+    return;
 }
 
 void Cache::LRU_Update() {
     if (tags_in_Set == 1) {
         return;
     }
-    //There are >2 Tags per set
-    else {
-        //The one being pointed to is already newest, i.e no updated needed
-        for (int i = 0; i < tags_in_Set; i++) {
-            if ( (i == evic_loc) && (evic_loc != 0)) {
-                cache[index_in][i].LRU_Counter = 0;
-            }
-            else if ((evic_loc == 0) && (i == tag_placement_indicator)) {
+    //An address has been evicted 
+    else if (address_evicted_flag) {
+        for (int i = 0; i < tags_in_Set; i++ ) {
+            if (i == evic_loc) {
                 cache[index_in][i].LRU_Counter = 0;
             }
             else {
+                ++cache[index_in][i].LRU_Counter;
+            }
+        }
+        //reset flag and return
+        address_evicted_flag = false;
+        return;
+    }
+    //There are >2 Tags per set and no evictions, a address was read or updated.
+    else {
+        for (int i = 0; i < tags_in_Set; i++) {
+            if (i == tag_placement_indicator) {
+                cache[index_in][i].LRU_Counter = 0;
+            }  
+            else if(cache[index_in][i].LRU_Counter == 0){
+                ++cache[index_in][i].LRU_Counter;
+            }
+            else if (cache[index_in][i].LRU_Counter < lru_counter_max_val) {
                 ++cache[index_in][i].LRU_Counter;
             }
         }

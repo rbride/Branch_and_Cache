@@ -19,6 +19,7 @@ public:
     bool read(int address, bool w_flag = false);
     int write(int address, bool w_flag = false); //int to pass up address
     void update_stored();
+    void determine_victim(int windex);
     void LRU_Update();
     void spit_out_data(std::ofstream&);
 
@@ -36,6 +37,7 @@ private:
     int lru_counter_max_val;
     int tag_placement_indicator;
     int evic_loc;
+    bool address_evicted_flag;
 };
 
 #endif
